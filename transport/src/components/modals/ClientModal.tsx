@@ -1,114 +1,167 @@
 'use client'
+
 import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { getSupabaseClient } from '@/lib/supabase/client'
-import { ClientSchema } from '@/lib/validations'
-import type { ClientFormData } from '@/lib/validations'
-import toast from 'react-hot-toast'
-import { X, Loader2 } from 'lucide-react'
-import type { Client } from '@/types'
+import { X } from 'lucide-react'
+import { saveClientAction } from '@/actions/clients'
 
-interface Props {
-  client?:  Client | null
-  onClose:  () => void
-  onSaved:  () => void
-  canEdit?: boolean
+type ClientRow = {
+  id?: string
+  company_name?: string | null
+  contact_person?: string | null
+  phone?: string | null
+  email?: string | null
+  gst_number?: string | null
+  address?: string | null
+  city?: string | null
+  state?: string | null
+  notes?: string | null
 }
 
-const EMPTY: ClientFormData = {
-  company_name: '', phone: '', credit_limit: 0, credit_days: 30,
+interface ClientModalProps {
+  open: boolean
+  onClose: () => void
+  initialData?: ClientRow | null
 }
 
-const FIELDS: { name: keyof ClientFormData; label: string; type?: string; full?: boolean }[] = [
-  { name: 'company_name',   label: 'Company Name *', full: true },
-  { name: 'contact_person', label: 'Contact Person' },
-  { name: 'phone',          label: 'Phone *' },
-  { name: 'email',          label: 'Email',          type: 'email' },
-  { name: 'gst_number',     label: 'GST Number' },
-  { name: 'credit_limit',   label: 'Credit Limit',   type: 'number' },
-  { name: 'credit_days',    label: 'Credit Days',    type: 'number' },
-  { name: 'address',        label: 'Address',        full: true },
-  { name: 'city',           label: 'City' },
-  { name: 'state',          label: 'State' },
-]
-
-export default function ClientModal({ client, onClose, onSaved, canEdit = true }: Props) {
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm({
-    resolver:      zodResolver(ClientSchema),
-    defaultValues: EMPTY,
-  })
-
+export default function ClientModal({
+  open,
+  onClose,
+  initialData,
+}: ClientModalProps) {
   useEffect(() => {
-    reset(client
-      ? { ...EMPTY, ...client, credit_limit: client.credit_limit ?? 0, credit_days: client.credit_days ?? 30 }
-      : EMPTY
-    )
-  }, [client, reset])
+    if (!open) return
 
-  async function onSubmit(data: ClientFormData) {
-    if (!canEdit) return
-    const sb = getSupabaseClient()
-    const { data: { user } } = await sb.auth.getUser()
-    if (!user) { toast.error('Not authenticated'); return }
-    if (client?.id) {
-      const { error } = await sb.from('clients')
-        .update({ ...data, updated_at: new Date().toISOString() })
-        .eq('id', client.id)
-      if (error) { toast.error(error.message); return }
-      toast.success('Client updated!')
-    } else {
-      const { error } = await sb.from('clients')
-        .insert({ ...data, created_by: user.id, is_deleted: false, locked: false })
-      if (error) { toast.error(error.message); return }
-      toast.success('Client added!')
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
     }
-    onSaved(); onClose()
-  }
+
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [open, onClose])
+
+  if (!open) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-[var(--color-surface)] rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col shadow-[var(--shadow-lg)]">
-        <div className="flex items-center justify-between p-4 border-b border-[var(--color-border)] shrink-0">
-          <h2 className="text-sm font-semibold">{client ? 'Edit Client' : 'Add Client'}</h2>
-          <button onClick={onClose} aria-label="Close" className="btn-ghost p-1.5 rounded-lg">
-            <X size={15} />
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-3xl overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-lg)]">
+        <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
+          <div>
+            <h2 className="text-lg font-semibold">
+              {initialData?.id ? 'Edit client' : 'Add client'}
+            </h2>
+            <p className="text-sm text-[var(--color-text-muted)]">
+              Save client profile, GST, address, and contact details.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 hover:bg-[var(--color-surface-offset)]"
+            aria-label="Close modal"
+          >
+            <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="overflow-y-auto p-4" noValidate>
-          <div className="grid grid-cols-2 gap-3">
-            {FIELDS.map((f) => (
-              <div key={f.name} className={f.full ? 'col-span-2' : ''}>
-                <label className="label" htmlFor={`cl-${f.name}`}>{f.label}</label>
-                <input
-                  id={`cl-${f.name}`}
-                  type={f.type ?? 'text'}
-                  {...register(f.name)}
-                  disabled={!canEdit || isSubmitting}
-                  className="input"
-                />
-                {errors[f.name] && (
-                  <p className="text-xs text-red-500 mt-1">{String(errors[f.name]?.message ?? '')}</p>
-                )}
-              </div>
-            ))}
+        <form action={saveClientAction} className="space-y-5 p-5">
+          <input type="hidden" name="id" defaultValue={initialData?.id ?? ''} />
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Company name</label>
+              <input
+                name="company_name"
+                defaultValue={initialData?.company_name ?? ''}
+                className="input"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">Contact person</label>
+              <input
+                name="contact_person"
+                defaultValue={initialData?.contact_person ?? ''}
+                className="input"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">Phone</label>
+              <input
+                name="phone"
+                defaultValue={initialData?.phone ?? ''}
+                className="input"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">Email</label>
+              <input
+                name="email"
+                type="email"
+                defaultValue={initialData?.email ?? ''}
+                className="input"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">GST number</label>
+              <input
+                name="gst_number"
+                defaultValue={initialData?.gst_number ?? ''}
+                className="input"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">City</label>
+              <input
+                name="city"
+                defaultValue={initialData?.city ?? ''}
+                className="input"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">State</label>
+              <input
+                name="state"
+                defaultValue={initialData?.state ?? ''}
+                className="input"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-sm font-medium">Address</label>
+              <textarea
+                name="address"
+                defaultValue={initialData?.address ?? ''}
+                className="textarea"
+                rows={3}
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-sm font-medium">Notes</label>
+              <textarea
+                name="notes"
+                defaultValue={initialData?.notes ?? ''}
+                className="textarea"
+                rows={3}
+              />
+            </div>
           </div>
 
-          {canEdit && (
-            <div className="flex gap-2 pt-3 mt-3 border-t border-[var(--color-border)]">
-              <button type="submit" disabled={isSubmitting} className="btn-primary">
-                {isSubmitting && <Loader2 size={13} className="animate-spin" />}
-                {isSubmitting ? 'Saving…' : client ? 'Save Changes' : 'Add Client'}
-              </button>
-              <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
-            </div>
-          )}
+          <div className="flex items-center justify-end gap-3">
+            <button type="button" onClick={onClose} className="btn btn-secondary">
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary">
+              {initialData?.id ? 'Update client' : 'Create client'}
+            </button>
+          </div>
         </form>
       </div>
     </div>

@@ -1,10 +1,12 @@
 'use client'
-import { useCallback, useState, useTransition } from 'react'
+
+import { useCallback, useMemo, useState, useTransition } from 'react'
 import {
   Area,
   AreaChart,
   Bar,
   BarChart,
+  CartesianGrid,
   Cell,
   Legend,
   Pie,
@@ -17,9 +19,9 @@ import {
 import {
   Activity,
   AlertCircle,
-  CheckCircle,
+  CheckCircle2,
+  CircleDollarSign,
   FileText,
-  TrendingUp,
   Truck,
   Users,
   XCircle,
@@ -30,10 +32,6 @@ import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import type { DashboardStats, EditRequest, MonthlyRevenue, Profile } from '@/types'
 
-const formatNumber = (num: number): string => {
-  return new Intl.NumberFormat('en-US').format(num)
-}
-
 interface Props {
   stats: DashboardStats
   monthlyRevenue: MonthlyRevenue[]
@@ -41,41 +39,74 @@ interface Props {
   profile: Profile
 }
 
-const PIE_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6']
+const PIE_COLORS = ['var(--color-primary)', 'var(--color-blue)', 'var(--color-warning)', 'var(--color-success)', 'var(--color-error)']
+
+const formatNumber = (num: number) => new Intl.NumberFormat('en-US').format(num)
 
 function KpiCard({
   title,
   value,
   sub,
   icon: Icon,
-  accent,
+  tone = 'neutral',
 }: {
   title: string
   value: string | number
   sub?: string
   icon: React.ElementType
-  accent?: string
+  tone?: 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'blue'
 }) {
+  const toneClass = {
+    neutral: 'badge-neutral',
+    primary: 'badge-info',
+    success: 'badge-success',
+    warning: 'badge-warning',
+    danger: 'badge-error',
+    blue: 'badge-info',
+  }[tone]
+
   return (
-    <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex gap-3 items-start">
-      <div className={cn('p-2 rounded-xl shrink-0', accent ?? 'bg-indigo-100 dark:bg-indigo-900/30')}>
-        <Icon size={16} className="text-indigo-600 dark:text-indigo-400" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-xs text-[var(--color-text-muted)] truncate">{title}</p>
-        <p className="text-lg font-bold leading-tight">{value}</p>
-        {sub && <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">{sub}</p>}
+    <div className="card metric-card card-accent h-full">
+      <div className="split items-start">
+        <div className="space-y-2">
+          <p className="metric-label">{title}</p>
+          <p className="metric-value tabular">{value}</p>
+          {sub ? <p className="section-subtitle !mt-0">{sub}</p> : null}
+        </div>
+
+        <div className={cn('badge shrink-0', toneClass)}>
+          <Icon size={15} />
+        </div>
       </div>
     </div>
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function SectionCard({
+  title,
+  subtitle,
+  actions,
+  children,
+  className,
+}: {
+  title: string
+  subtitle?: string
+  actions?: React.ReactNode
+  children: React.ReactNode
+  className?: string
+}) {
   return (
-    <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4">
-      <h3 className="text-sm font-semibold mb-4">{title}</h3>
+    <section className={cn('card section-stack', className)}>
+      <div className="split">
+        <div>
+          <h2 className="section-title">{title}</h2>
+          {subtitle ? <p className="section-subtitle">{subtitle}</p> : null}
+        </div>
+        {actions ? <div className="stack-sm">{actions}</div> : null}
+      </div>
+
       {children}
-    </div>
+    </section>
   )
 }
 
@@ -92,12 +123,14 @@ export default function AnalyticsDashboard({
   const handleApprove = useCallback((id: string) => {
     startTransition(async () => {
       const res = await approveEditRequest(id)
+
       if (res.error) {
         toast.error(res.error)
         return
       }
+
       toast.success('Request approved')
-      setRequests(prev => prev.filter(r => r.id !== id))
+      setRequests((prev) => prev.filter((r) => r.id !== id))
     })
   }, [])
 
@@ -107,116 +140,162 @@ export default function AnalyticsDashboard({
 
     startTransition(async () => {
       const res = await rejectEditRequest(id, note)
+
       if (res.error) {
         toast.error(res.error)
         return
       }
+
       toast.success('Request rejected')
-      setRequests(prev => prev.filter(r => r.id !== id))
+      setRequests((prev) => prev.filter((r) => r.id !== id))
     })
   }, [])
 
-  const tripStatusData = [
-    { name: 'In Transit', value: stats.active_trips },
-    { name: 'Planned', value: Math.max(stats.trips_this_month - stats.active_trips, 0) },
-    { name: 'Maintenance', value: stats.trucks_in_maintenance },
-  ].filter(d => d.value > 0)
+  const tripStatusData = useMemo(
+    () =>
+      [
+        { name: 'In Transit', value: stats.active_trips },
+        { name: 'Planned', value: Math.max(stats.trips_this_month - stats.active_trips, 0) },
+        { name: 'Maintenance', value: stats.trucks_in_maintenance },
+      ].filter((d) => d.value > 0),
+    [stats.active_trips, stats.trips_this_month, stats.trucks_in_maintenance],
+  )
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+    <div className="section-stack">
+      <section className="split">
+        <div>
+          <p className="eyebrow">Operations overview</p>
+          <h1 className="page-title">Transport analytics</h1>
+          <p className="section-subtitle">
+            Live fleet, trip, billing, and approval visibility across your transport operation.
+          </p>
+        </div>
+
+        <div className="stack-sm">
+          <div className="badge badge-neutral">Role: {profile.role}</div>
+          <div className="badge badge-info">{formatNumber(stats.total_trips)} total trips</div>
+        </div>
+      </section>
+
+      <section className="kpi-grid">
         <KpiCard
-          title="Revenue This Month"
+          title="Revenue this month"
           value={formatCurrency(stats.revenue_this_month)}
-          icon={TrendingUp}
-          accent="bg-green-100 dark:bg-green-900/30"
+          sub="Collected from paid and partial invoices"
+          icon={CircleDollarSign}
+          tone="success"
         />
         <KpiCard
-          title="Active Trips"
+          title="Active trips"
           value={stats.active_trips}
-          sub={`${stats.total_trips} total`}
+          sub={`${stats.total_trips} total trips`}
           icon={Truck}
-        />
-        <KpiCard title="Total Clients" value={formatNumber(stats.total_clients)} icon={Users} />
-        <KpiCard
-          title="Total Trucks"
-          value={formatNumber(stats.total_trucks)}
-          sub={`${stats.trucks_in_maintenance} in maintenance`}
-          icon={Truck}
-          accent="bg-yellow-100 dark:bg-yellow-900/30"
+          tone="primary"
         />
         <KpiCard
-          title="Total Drivers"
-          value={formatNumber(stats.total_drivers)}
-          sub={`${stats.drivers_on_trip} on trip`}
+          title="Clients"
+          value={formatNumber(stats.total_clients)}
+          sub="Active business accounts"
           icon={Users}
-          accent="bg-purple-100 dark:bg-purple-900/30"
+          tone="blue"
         />
         <KpiCard
-          title="Trips This Month"
+          title="Fleet size"
+          value={formatNumber(stats.total_trucks)}
+          sub={`${stats.trucks_in_maintenance} trucks in maintenance`}
+          icon={Truck}
+          tone="warning"
+        />
+        <KpiCard
+          title="Drivers"
+          value={formatNumber(stats.total_drivers)}
+          sub={`${stats.drivers_on_trip} drivers on trip`}
+          icon={Users}
+          tone="blue"
+        />
+        <KpiCard
+          title="Trips this month"
           value={formatNumber(stats.trips_this_month)}
+          sub="Current month activity"
           icon={Activity}
-          accent="bg-blue-100 dark:bg-blue-900/30"
+          tone="primary"
         />
         <KpiCard
-          title="Pending Invoices"
+          title="Pending invoices"
           value={formatNumber(stats.pending_invoices_count)}
           sub={formatCurrency(stats.pending_invoices_amount)}
           icon={FileText}
-          accent="bg-red-100 dark:bg-red-900/30"
+          tone="danger"
         />
-        {isSuperAdmin && (
+        {isSuperAdmin ? (
           <KpiCard
-            title="Edit Requests"
+            title="Edit requests"
             value={formatNumber(stats.pending_edit_requests)}
+            sub="Awaiting admin review"
             icon={AlertCircle}
-            accent="bg-orange-100 dark:bg-orange-900/30"
+            tone="warning"
           />
-        )}
-      </div>
+        ) : null}
+      </section>
 
-      <Section title="Monthly Revenue (Last 12 Months)">
-        <div style={{ width: '100%', height: 300 }}>
-  <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={monthlyRevenue} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${Math.round(Number(v ?? 0) / 1000)}k`} />
-              <Tooltip formatter={v => [formatCurrency(Number(v ?? 0)), 'Revenue']} />
-              <Area
-                type="monotone"
-                dataKey="revenue"
-                stroke="#6366f1"
-                strokeWidth={2}
-                fill="url(#rev)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </Section>
+      <div className="analytics-grid">
+        <SectionCard
+          title="Monthly revenue"
+          subtitle="Last 12 months billing trend"
+          className="col-span-8"
+        >
+          <div className="chart-shell chart-h-340">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
+              <AreaChart data={monthlyRevenue} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.34} />
+                    <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Section title="Monthly Trips">
-         <div className="w-full" style={{ height: 240 }}>
-  <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyRevenue} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                <Tooltip formatter={(v, name) => [formatNumber(Number(v ?? 0)), String(name)]} />
-                <Bar dataKey="trips" fill="#6366f1" radius={[4, 4, 0, 0]} />
-              </BarChart>
+                <CartesianGrid stroke="var(--color-divider)" strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v) => `${Math.round(Number(v ?? 0) / 1000)}k`}
+                />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: 14,
+                    border: '1px solid var(--color-border)',
+                    background: 'var(--color-surface)',
+                    boxShadow: 'var(--shadow-md)',
+                  }}
+                  formatter={(v) => [formatCurrency(Number(v ?? 0)), 'Revenue']}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="var(--color-primary)"
+                  strokeWidth={2.5}
+                  fill="url(#revenueFill)"
+                />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
-        </Section>
+        </SectionCard>
 
-        <Section title="Fleet Status">
-         <div className="w-full" style={{ height: 220 }}>
-  <ResponsiveContainer width="100%" height="100%">
+        <SectionCard
+          title="Fleet status"
+          subtitle="Trips and maintenance mix"
+          className="col-span-4"
+        >
+          <div className="chart-shell chart-h-340">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
               <PieChart>
                 <Pie
                   data={tripStatusData}
@@ -224,7 +303,9 @@ export default function AnalyticsDashboard({
                   nameKey="name"
                   cx="50%"
                   cy="50%"
-                  outerRadius={80}
+                  outerRadius={92}
+                  innerRadius={52}
+                  paddingAngle={3}
                   label={({ name, percent }) => `${name} ${Math.round((percent ?? 0) * 100)}%`}
                   labelLine={false}
                 >
@@ -232,59 +313,140 @@ export default function AnalyticsDashboard({
                     <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
-                <Legend />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: 14,
+                    border: '1px solid var(--color-border)',
+                    background: 'var(--color-surface)',
+                    boxShadow: 'var(--shadow-md)',
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
-        </Section>
+        </SectionCard>
       </div>
 
-      {isSuperAdmin && (
-        <Section title={`Pending Edit Requests (${requests.length})`}>
+      <div className="analytics-grid">
+        <SectionCard
+          title="Monthly trips"
+          subtitle="Trip count trend by month"
+          className="col-span-8"
+        >
+          <div className="chart-shell chart-h-300">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
+              <BarChart data={monthlyRevenue} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid stroke="var(--color-divider)" strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: 14,
+                    border: '1px solid var(--color-border)',
+                    background: 'var(--color-surface)',
+                    boxShadow: 'var(--shadow-md)',
+                  }}
+                  formatter={(v) => [formatNumber(Number(v ?? 0)), 'Trips']}
+                />
+                <Bar dataKey="trips" fill="var(--color-blue)" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Finance snapshot"
+          subtitle="Quick pending billing overview"
+          className="col-span-4"
+        >
+          <div className="section-stack">
+            <div className="surface-2 rounded-[var(--radius-lg)] p-4">
+              <p className="metric-label">Outstanding amount</p>
+              <p className="metric-value tabular">{formatCurrency(stats.pending_invoices_amount)}</p>
+            </div>
+
+            <div className="surface-2 rounded-[var(--radius-lg)] p-4">
+              <p className="metric-label">Open invoices</p>
+              <p className="metric-value tabular">{formatNumber(stats.pending_invoices_count)}</p>
+            </div>
+          </div>
+        </SectionCard>
+      </div>
+
+      {isSuperAdmin ? (
+        <SectionCard
+          title={`Pending edit requests (${requests.length})`}
+          subtitle="Approve or reject protected record changes"
+        >
           {requests.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-muted)] py-4 text-center">No pending requests</p>
+            <div className="empty-state">
+              <div className="empty-state-icon">
+                <CheckCircle2 size={20} />
+              </div>
+              <p>No pending requests right now.</p>
+            </div>
           ) : (
-            <div className="space-y-2">
-              {requests.map(req => (
+            <div className="section-stack">
+              {requests.map((req) => (
                 <div
                   key={req.id}
-                  className="flex items-start justify-between gap-3 p-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-offset)]"
+                  className="surface-2 rounded-[var(--radius-lg)] p-4 transition-transform duration-200 hover:-translate-y-[1px]"
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-medium capitalize">
-                        {req.table_name.replace(/_/g, ' ')}
-                      </span>
-                      <Badge variant="warning">pending</Badge>
+                  <div className="split items-start">
+                    <div className="space-y-2">
+                      <div className="stack-sm">
+                        <span className="badge badge-neutral capitalize">
+                          {req.table_name.replace(/_/g, ' ')}
+                        </span>
+                        <Badge variant="warning">pending</Badge>
+                      </div>
+
+                      <p className="text-sm font-medium text-[var(--color-text)]">
+                        {req.reason || 'No reason provided'}
+                      </p>
+
+                      <p className="text-xs text-[var(--color-text-muted)]">
+                        {req.requester?.full_name ?? req.requested_by} • {formatDate(req.created_at)}
+                      </p>
                     </div>
-                    <p className="text-xs text-[var(--color-text-muted)] mt-0.5 truncate">{req.reason}</p>
-                    <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">
-                      {req.requester?.full_name ?? req.requested_by} · {formatDate(req.created_at)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      onClick={() => handleApprove(req.id)}
-                      disabled={isPending}
-                      className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] rounded-lg bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50 transition-colors"
-                    >
-                      <CheckCircle size={11} /> Approve
-                    </button>
-                    <button
-                      onClick={() => handleReject(req.id)}
-                      disabled={isPending}
-                      className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] rounded-lg bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50 transition-colors"
-                    >
-                      <XCircle size={11} /> Reject
-                    </button>
+
+                    <div className="stack-sm">
+                      <button
+                        onClick={() => handleApprove(req.id)}
+                        disabled={isPending}
+                        className="btn btn-secondary"
+                      >
+                        <CheckCircle2 size={15} />
+                        Approve
+                      </button>
+
+                      <button
+                        onClick={() => handleReject(req.id)}
+                        disabled={isPending}
+                        className="btn btn-danger"
+                      >
+                        <XCircle size={15} />
+                        Reject
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </Section>
-      )}
+        </SectionCard>
+      ) : null}
     </div>
   )
 }

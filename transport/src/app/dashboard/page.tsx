@@ -1,17 +1,24 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AnalyticsDashboard from '@/components/dashboard/AnalyticsDashboard'
-import DashboardShell from '@/components/layout/DashboardShell'
 import type { DashboardStats, EditRequest, MonthlyRevenue, Profile } from '@/types'
 
 export const dynamic = 'force-dynamic'
 
 export default async function DashboardPage() {
   const sb = await createClient()
-  const { data: { user } } = await sb.auth.getUser()
+  const {
+    data: { user },
+  } = await sb.auth.getUser()
+
   if (!user) redirect('/auth/login')
 
-  const { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).single()
+  const { data: profile } = await sb
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single()
+
   if (!profile) redirect('/auth/login')
 
   const now = new Date()
@@ -41,35 +48,38 @@ export default async function DashboardPage() {
   }[]
 
   const revenueThisMonth = invoices
-    .filter(inv => ['paid', 'partial'].includes(inv.status))
-    .reduce((s, inv) => s + (inv.total_amount ?? 0), 0)
+    .filter((inv) => ['paid', 'partial'].includes(inv.status))
+    .reduce((sum, inv) => sum + (inv.total_amount ?? 0), 0)
 
-  const pendingInvoices = invoices.filter(inv => ['sent', 'overdue', 'partial'].includes(inv.status))
+  const pendingInvoices = invoices.filter((inv) =>
+    ['sent', 'overdue', 'partial'].includes(inv.status),
+  )
 
   const stats: DashboardStats = {
     total_trips: trips.length,
-    active_trips: trips.filter(t => t.status === 'in_transit').length,
+    active_trips: trips.filter((t) => t.status === 'in_transit').length,
     total_clients: clientsRes.count ?? 0,
     total_trucks: trucks.length,
     total_drivers: driversRes.count ?? 0,
     revenue_this_month: revenueThisMonth,
     pending_invoices_count: pendingInvoices.length,
-    pending_invoices_amount: pendingInvoices.reduce((s, inv) => s + (inv.balance_amount ?? 0), 0),
+    pending_invoices_amount: pendingInvoices.reduce(
+      (sum, inv) => sum + (inv.balance_amount ?? 0),
+      0,
+    ),
     pending_edit_requests: editReqRes.data?.length ?? 0,
-    trucks_in_maintenance: trucks.filter(t => t.status === 'maintenance').length,
-    drivers_on_trip: trips.filter(t => t.status === 'in_transit').length,
-    trips_this_month: trips.filter(t => t.departure_date >= monthStart).length,
+    trucks_in_maintenance: trucks.filter((t) => t.status === 'maintenance').length,
+    drivers_on_trip: trips.filter((t) => t.status === 'in_transit').length,
+    trips_this_month: trips.filter((t) => t.departure_date >= monthStart).length,
     pending_invoices: pendingInvoices.length,
   }
 
   return (
-    <DashboardShell profile={profile as Profile}>
-      <AnalyticsDashboard
-        stats={stats}
-        monthlyRevenue={(revenueRes.data ?? []) as MonthlyRevenue[]}
-        initialRequests={(editReqRes.data ?? []) as EditRequest[]}
-        profile={profile as Profile}
-      />
-    </DashboardShell>
+    <AnalyticsDashboard
+      stats={stats}
+      monthlyRevenue={(revenueRes.data ?? []) as MonthlyRevenue[]}
+      initialRequests={(editReqRes.data ?? []) as EditRequest[]}
+      profile={profile as Profile}
+    />
   )
 }

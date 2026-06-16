@@ -1,0 +1,7 @@
+{
+    "markdown.validate.enabled": true,
+    "css.validate": false,
+  "css.customData": [".vscode/tailwind.json"]
+}
+
+  

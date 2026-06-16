@@ -1,0 +1,23 @@
+{
+  "extends": [
+    "development"
+  ],
+  "hints": {
+    "axe/forms": [
+      "off",
+      {
+        "label": "off"
+      }
+    ],
+    "no-inline-styles": "off",
+    "compat-api/html": "off",
+    "typescript-config/consistent-casing": "off",
+    "button-type": "off",
+    "axe/name-role-value": [
+      "default",
+      {
+        "button-name": "off"
+      }
+    ]
+  }
+}

@@ -39,24 +39,18 @@ export default function DashboardShell({
     }
   }, [mobileOpen])
 
-  const openMobileMenu = () => {
-    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-      setMobileOpen(true)
-    }
-  }
-
   return (
-    <div className="app-shell">
+    <div className="app-shell min-h-screen overflow-x-hidden bg-[var(--color-bg)]">
       <Sidebar
         role={profile.role as UserRole}
         mobileOpen={mobileOpen}
         onClose={() => setMobileOpen(false)}
       />
 
-      <div className="main-content">
-        <TopBar profile={profile} onMenuClick={openMobileMenu} />
-        <main className="page-content">
-          <div className="content-width section-stack">{children}</div>
+      <div className="main-content flex min-w-0 flex-1 flex-col overflow-hidden lg:pl-60">
+        <TopBar profile={profile} onMenuClick={() => setMobileOpen(true)} />
+        <main className="page-content flex-1 overflow-y-auto p-4 lg:p-6">
+          <div className="mx-auto max-w-[1400px]">{children}</div>
         </main>
       </div>
     </div>

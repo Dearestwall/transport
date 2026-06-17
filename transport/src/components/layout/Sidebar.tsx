@@ -1,4 +1,5 @@
 'use client'
+
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -47,42 +48,44 @@ interface SidebarProps {
   onClose?: () => void
 }
 
-export default function Sidebar({ role, mobileOpen, onClose }: SidebarProps) {
+export default function Sidebar({ role, mobileOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname()
-  const visible = NAV.filter(n => H[role] >= H[n.minRole as UserRole])
+  const visible = NAV.filter((n) => H[role] >= H[n.minRole as UserRole])
 
   return (
     <>
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-          onClick={onClose}
-          aria-hidden="true"
-        />
-      )}
+     {mobileOpen ? (
+  <button
+    type="button"
+    className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+    onClick={onClose}
+    aria-label="Close menu overlay"
+  />
+) : null}
 
-      <aside
-        className={cn(
-          'fixed top-0 left-0 z-50 h-full w-60 bg-[var(--color-surface)] border-r border-[var(--color-border)] flex flex-col',
-          'transition-transform duration-300 lg:static lg:translate-x-0',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        )}
-      >
+     <aside
+  className={cn(
+    'fixed inset-y-0 left-0 z-50 w-60 transform border-r border-[var(--color-border)] bg-[var(--color-surface)] flex flex-col shadow-xl',
+    'transition-transform duration-300 ease-out lg:translate-x-0',
+    mobileOpen ? 'translate-x-0' : '-translate-x-full'
+  )}
+>
         <div className="flex items-center justify-between h-14 px-4 border-b border-[var(--color-border)] shrink-0">
           <span className="font-bold text-sm">🚛 TransportOS</span>
-          {onClose && (
+          {onClose ? (
             <button
+              type="button"
               onClick={onClose}
               aria-label="Close menu"
               className="lg:hidden p-1.5 rounded-lg hover:bg-[var(--color-surface-offset)]"
             >
               <X size={15} />
             </button>
-          )}
+          ) : null}
         </div>
 
         <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-          {visible.map(item => {
+          {visible.map((item) => {
             const Icon = item.icon
             const active =
               pathname === item.href ||

@@ -6,6 +6,7 @@ import { Bell, LogOut, Menu, Search } from 'lucide-react'
 import { getSupabaseClient } from '@/lib/supabase/client'
 import { useNotifications } from '@/hooks/useNotifications'
 import { cn, formatDate } from '@/lib/utils'
+import DashboardSearchDialog from '@/components/search/DashboardSearchDialog'
 import type { AppNotification, Profile } from '@/types'
 
 interface TopBarProps {
@@ -18,6 +19,19 @@ export default function TopBar({ profile, onMenuClick }: TopBarProps) {
   const { notifications, unreadCount, markAllRead, markRead } = useNotifications()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+
+  useEffect(() => {
+  const onKey = (e: KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault()
+      setSearchOpen(true)
+    }
+  }
+
+  window.addEventListener('keydown', onKey)
+  return () => window.removeEventListener('keydown', onKey)
+}, [])
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -43,24 +57,30 @@ export default function TopBar({ profile, onMenuClick }: TopBarProps) {
   return (
     <header className="topbar">
       <div className="topbar-inner">
-        <div className="cluster min-w-0">
-          <button
-            type="button"
-            onClick={onMenuClick}
-            aria-label="Open menu"
-            className="btn btn-ghost btn-icon lg:hidden"
-          >
-            <Menu size={18} />
-          </button>
+      <div className="cluster min-w-0">
+  <button
+    type="button"
+    onClick={onMenuClick}
+    aria-label="Open menu"
+    className="flex lg:hidden items-center justify-center btn btn-ghost btn-icon"
+  >
+    <Menu size={18} />
+  </button>
 
-          <div className="hidden md:flex items-center gap-2 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 min-w-[260px]">
-            <Search size={15} className="text-[var(--color-text-muted)]" />
-            <input
-              placeholder="Search trips, clients, invoices..."
-              className="w-full bg-transparent text-sm outline-none placeholder:text-[var(--color-text-faint)]"
-            />
-          </div>
-        </div>
+  <button
+    type="button"
+    onClick={() => setSearchOpen(true)}
+    className="hidden md:flex items-center gap-2 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 min-w-[260px] text-left"
+  >
+    <Search size={15} className="text-[var(--color-text-muted)]" />
+    <span className="flex-1 text-sm text-[var(--color-text-muted)]">
+      Search trips, clients, invoices...
+    </span>
+    <kbd className="rounded-md border border-[var(--color-border)] px-2 py-1 text-[10px] text-[var(--color-text-faint)]">
+      Ctrl K
+    </kbd>
+  </button>
+</div>
 
         <div className="cluster shrink-0">
           <div ref={ref} className="relative">
@@ -134,7 +154,11 @@ export default function TopBar({ profile, onMenuClick }: TopBarProps) {
               {profile.role.replace(/_/g, ' ')}
             </p>
           </div>
-
+<DashboardSearchDialog
+  open={searchOpen}
+  onClose={() => setSearchOpen(false)}
+  profile={profile}
+/>
           <button onClick={logout} title="Sign out" className="btn btn-secondary">
             <LogOut size={15} />
             <span className="hidden sm:inline">Sign out</span>

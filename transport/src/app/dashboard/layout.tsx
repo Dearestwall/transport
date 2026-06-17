@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import Sidebar from '@/components/layout/Sidebar'
-import TopBar from '@/components/layout/TopBar'
+import DashboardShell from '@/components/layout/DashboardShell'
 
 export default async function DashboardLayout({
   children,
@@ -23,17 +22,5 @@ export default async function DashboardLayout({
 
   if (!profile || !profile.is_active) redirect('/auth/login')
 
-  return (
-    <div className="flex h-screen overflow-hidden bg-[var(--color-bg)]">
-      <Sidebar role={profile.role} />
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <TopBar profile={profile} />
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-          <div className="mx-auto max-w-[1400px]">
-            {children}
-          </div>
-        </main>
-      </div>
-    </div>
-  )
+  return <DashboardShell profile={profile}>{children}</DashboardShell>
 }
